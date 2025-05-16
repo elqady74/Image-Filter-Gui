@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Filter Application</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <h1 class="text-3xl font-bold text-white text-center mb-6">Image Filter Application</h1>
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <div class＝"flex flex-col sm:flex-row gap-4 mb-6">
+                <label class="bg-blue-600 text-white px-4 py-2 rounded-md cursor-pointer hover:bg-blue-700 transition">
+                    Browse Image
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                </label>
+                <select id="filterSelect" class="bg-gray-700 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled selected>Select a filter</option>
+                    <option value="Add noise">Add Noise</option>
+                    <option value="Remove noise">Remove Noise</option>
+                    <option value="Mean filter">Mean Filter</option>
+                    <option value="Median filter">Median Filter</option>
+                    <option value="Gaussian filter">Gaussian Filter</option>
+                    <option value="Gaussian noise">Gaussian Noise</option>
+                    <option value="Erosion">Erosion</option>
+                    <option value="Dilation">Dilation</option>
+                    <option value="Opening">Opening</option>
+                    <option value="Closing">Closing</option>
+                    <option value="Boundary extraction">Boundary Extraction</option>
+                    <option value="Region filling">Region Filling</option>
+                    <option value="Global threshold">Global Threshold</option>
+                    <option value="Adaptive threshold">Adaptive Threshold</option>
+                    <option value="Otsu threshold">Otsu Threshold</option>
+                    <option value="Hough">Hough Transform</option>
+                    <option value="Watershed">Watershed</option>
+                </select>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-6">
+                <div class="flex-1">
+                    <h2 class="text-xl text-white mb-2">Original Image</h2>
+                    <canvas id="originalCanvas" class="w-full h-auto border-2 border-gray-600 rounded-md"></canvas>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-xl text-white mb-2">Filtered Image</h2>
+                    <canvas id="filteredCanvas" class="w-full h-auto border-2 border-gray-600 rounded-md"></canvas>
+                    <p id="filterMessage" class="text-gray-400 mt-2"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const filterSelect = document.getElementById('filterSelect');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const filteredCanvas = document.getElementById('filteredCanvas');
+        const filterMessage = document.getElementById('filterMessage');
+        let originalImage = null;
+        let imageFile = null;
+
+        imageInput.addEventListener('change', (e) => {
+            imageFile = e.target.files[0];
+            if (imageFile) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    originalImage = new Image();
+                    originalImage.onload = () => {
+                        originalCanvas.width = originalImage.width;
+                        originalCanvas.height = originalImage.height;
+                        filteredCanvas.width = originalImage.width;
+                        filteredCanvas.height = originalImage.height;
+                        const ctx = originalCanvas.getContext('2d');
+                        ctx.drawImage(originalImage, 0, 0);
+                        filteredCanvas.getContext('2d').clearRect(0, 0, filteredCanvas.width, filteredCanvas.height);
+                        filterMessage.textContent = 'Select a filter to apply.';
+                    };
+                    originalImage.src = event.target.result;
+                };
+                reader.readAsDataURL(imageFile);
+            }
+        });
+
+        filterSelect.addEventListener('change', async () => {
+            const filter = filterSelect.value;
+            if (filter && imageFile) {
+                filterMessage.textContent = `Applying ${filter}...`;
+                try {
+                    const formData = new FormData();
+                    formData.append('file', imageFile);
+                    formData.append('filter_name', filter);
+
+                    const response = await fetch('http://localhost:8001/apply_filter', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to apply filter');
+                    }
+
+                    const data = await response.json();
+                    const filteredImage = new Image();
+                    filteredImage.onload = () => {
+                        filteredCanvas.width = filteredImage.width;
+                        filteredCanvas.height = filteredImage.height;
+                        const ctx = filteredCanvas.getContext('2d');
+                        ctx.drawImage(filteredImage, 0, 0);
+                        filterMessage.textContent = `${filter} applied successfully!`;
+                    };
+                    filteredImage.src = data.filtered_image;
+                } catch (error) {
+                    filterMessage.textContent = `Error applying ${filter}: ${error.message}`;
+                }
+            } else if (!imageFile) {
+                filterMessage.textContent = 'Please upload an image first.';
+            }
+        });
+    </script>
+</body>
+</html>
